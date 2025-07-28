@@ -184,6 +184,10 @@
             border: 2px solid #f59e0b;
             border-radius: 4px;
         }
+
+        .control-btn {
+            -webkit-tap-highlight-color: transparent; /* Menghilangkan highlight saat disentuh */
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -445,6 +449,7 @@
                     
                     <div class="mt-6 bg-yellow-50 p-4 rounded-lg">
                         <h4 class="font-bold text-yellow-700 mb-2">Kontrol Permainan:</h4>
+                        <p class="text-center text-gray-600 mb-2">Gunakan tombol panah di keyboard (PC) atau tombol kontrol di layar (HP).</p>
                         <div class="flex flex-wrap justify-center gap-2 mb-4">
                             <div class="flex flex-col items-center">
                                 <div class="key-control">↑</div>
@@ -499,11 +504,24 @@
                         </div>
                     </div>
 
-                    <div class="flex justify-center">
+                    <div class="flex flex-col items-center">
                         <div class="game-container">
                             <div id="game-board" class="game-board"></div>
                             <div id="player" class="player">😊</div>
                             <div id="monster" class="monster">👹</div>
+                        </div>
+
+                        <!-- Touch Controls for Mobile -->
+                        <div id="touch-controls" class="mt-6 grid grid-cols-3 gap-2 w-48 mx-auto md:hidden">
+                            <div></div>
+                            <button id="btn-up" class="control-btn bg-blue-500 text-white text-2xl rounded-lg shadow-lg active:bg-blue-700 h-14">▲</button>
+                            <div></div>
+                            <button id="btn-left" class="control-btn bg-blue-500 text-white text-2xl rounded-lg shadow-lg active:bg-blue-700 h-14">◀</button>
+                            <div></div>
+                            <button id="btn-right" class="control-btn bg-blue-500 text-white text-2xl rounded-lg shadow-lg active:bg-blue-700 h-14">▶</button>
+                            <div></div>
+                            <button id="btn-down" class="control-btn bg-blue-500 text-white text-2xl rounded-lg shadow-lg active:bg-blue-700 h-14">▼</button>
+                            <div></div>
                         </div>
                     </div>
 
@@ -794,6 +812,12 @@
                     feedback.classList.remove('hidden');
                 });
             });
+
+            // Add event listeners for touch controls
+            document.getElementById('btn-up').addEventListener('click', () => movePlayer('up'));
+            document.getElementById('btn-down').addEventListener('click', () => movePlayer('down'));
+            document.getElementById('btn-left').addEventListener('click', () => movePlayer('left'));
+            document.getElementById('btn-right').addEventListener('click', () => movePlayer('right'));
             
             // Initialize the game board
             selectRandomQuestions();
