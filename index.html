@@ -658,8 +658,77 @@
             </div>
         </footer>
     </div>
+    
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, limit, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    <script>
+        // --- Firebase Configuration ---
+        // These global variables are provided by the execution environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyBfouKaruU-PNGH8zgG8D9yy-htDrvmLiQ", authDomain: "labirin-nilai-tempat.firebaseapp.com", projectId: "labirin-nilai-tempat", storageBucket: "labirin-nilai-tempat.firebasestorage.app", messagingSenderId: "238358120888", appId: "1:238358120888:web:db5698984d915415a2274d" };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let rankingsCollection;
+        let userId;
+
+        // --- Authentication ---
+        async function initializeAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Authentication failed:", error);
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                // Path for public data (rankings)
+                rankingsCollection = collection(db, `artifacts/${appId}/public/data/rankings`);
+                listenForRankings(); // Start listening for ranking updates
+            } else {
+                userId = null;
+                console.log("User is signed out.");
+            }
+        });
+
+        // --- Firestore Listener ---
+        function listenForRankings() {
+            if (!rankingsCollection) return;
+            // Create a query to get the top 50 scores, ordered by score descending
+            const rankingsQuery = query(collection(db, `artifacts/${appId}/public/data/rankings`));
+
+            onSnapshot(rankingsQuery, (snapshot) => {
+                let fetchedRankings = [];
+                snapshot.forEach((doc) => {
+                    fetchedRankings.push({ id: doc.id, ...doc.data() });
+                });
+                // Sort by score descending, then by date ascending as a tie-breaker
+                fetchedRankings.sort((a, b) => {
+                    if (b.score !== a.score) {
+                        return b.score - a.score;
+                    }
+                    return new Date(a.date) - new Date(b.date);
+                });
+                
+                rankings = fetchedRankings.slice(0, 50); // Keep only top 50
+                displayRankings(); // Update the UI with the new rankings
+            }, (error) => {
+                console.error("Error fetching rankings: ", error);
+            });
+        }
+        
+        // --- Game Logic (remains mostly the same) ---
         // Game variables
         let currentScreen = 'home-screen';
         let gameStarted = false;
@@ -675,91 +744,29 @@
         let playerName = '';
         let selectedQuestions = [];
         let totalQuestions = 10; // Number of questions per game
+        let rankings = []; // Correctly declare rankings variable
         
         // All available questions (15 total)
         let allGameQuestions = [
-            { 
-                question: "Pada bilangan 2.475, nilai tempat angka 7 adalah?", 
-                answers: ["Ribuan", "Ratusan", "Puluhan", "Satuan"], 
-                correct: "Puluhan" 
-            },
-            { 
-                question: "Angka yang menempati nilai tempat ratusan pada bilangan 4.629 adalah?", 
-                answers: ["4", "6", "2", "9"], 
-                correct: "6" 
-            },
-            { 
-                question: "Nilai angka 8 pada bilangan 2.843 adalah?", 
-                answers: ["8", "80", "800", "8000"], 
-                correct: "800" 
-            },
-            { 
-                question: "Pada bilangan 5.376, angka yang nilainya 70 adalah?", 
-                answers: ["7", "3", "6", "5"], 
-                correct: "7" 
-            },
-            { 
-                question: "Bilangan 6.294 dapat diuraikan menjadi?", 
-                answers: ["6000+200+90+4", "6000+290+4", "6000+200+94", "6294"], 
-                correct: "6000+200+90+4" 
-            },
-            { 
-                question: "Nilai tempat angka 5 pada bilangan 9.514 adalah?", 
-                answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], 
-                correct: "Puluhan" 
-            },
-            { 
-                question: "Pada bilangan 7.836, angka yang memiliki nilai 800 adalah?", 
-                answers: ["8", "3", "6", "7"], 
-                correct: "8" 
-            },
-            { 
-                question: "Bilangan 4.275 terdiri dari?", 
-                answers: ["4 ribuan, 2 ratusan, 7 puluhan, 5 satuan", "4 ribuan, 27 puluhan, 5 satuan", "42 ratusan, 75 satuan", "4 ribuan, 275 satuan"], 
-                correct: "4 ribuan, 2 ratusan, 7 puluhan, 5 satuan" 
-            },
-            { 
-                question: "Nilai tempat angka 9 pada bilangan 3.967 adalah?", 
-                answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], 
-                correct: "Puluhan" 
-            },
-            { 
-                question: "Pada bilangan 1.234, jumlah nilai angka 2 dan 3 adalah?", 
-                answers: ["5", "23", "50", "230"], 
-                correct: "230" 
-            },
-            { 
-                question: "Pada bilangan 8.152, angka yang menempati nilai tempat satuan adalah?", 
-                answers: ["8", "1", "5", "2"], 
-                correct: "2" 
-            },
-            { 
-                question: "Nilai angka 6 pada bilangan 3.648 adalah?", 
-                answers: ["6", "60", "600", "6000"], 
-                correct: "600" 
-            },
-            { 
-                question: "Pada bilangan 9.073, angka yang nilainya 9000 adalah?", 
-                answers: ["9", "0", "7", "3"], 
-                correct: "9" 
-            },
-            { 
-                question: "Bilangan 5.321 dapat diuraikan menjadi?", 
-                answers: ["5000+300+20+1", "5000+321", "5+3+2+1", "5321"], 
-                correct: "5000+300+20+1" 
-            },
-            { 
-                question: "Nilai tempat angka 4 pada bilangan 7.462 adalah?", 
-                answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], 
-                correct: "Ratusan" 
-            }
+            { question: "Pada bilangan 2.475, nilai tempat angka 7 adalah?", answers: ["Ribuan", "Ratusan", "Puluhan", "Satuan"], correct: "Puluhan" },
+            { question: "Angka yang menempati nilai tempat ratusan pada bilangan 4.629 adalah?", answers: ["4", "6", "2", "9"], correct: "6" },
+            { question: "Nilai angka 8 pada bilangan 2.843 adalah?", answers: ["8", "80", "800", "8000"], correct: "800" },
+            { question: "Pada bilangan 5.376, angka yang nilainya 70 adalah?", answers: ["7", "3", "6", "5"], correct: "7" },
+            { question: "Bilangan 6.294 dapat diuraikan menjadi?", answers: ["6000+200+90+4", "6000+290+4", "6000+200+94", "6294"], correct: "6000+200+90+4" },
+            { question: "Nilai tempat angka 5 pada bilangan 9.514 adalah?", answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], correct: "Puluhan" },
+            { question: "Pada bilangan 7.836, angka yang memiliki nilai 800 adalah?", answers: ["8", "3", "6", "7"], correct: "8" },
+            { question: "Bilangan 4.275 terdiri dari?", answers: ["4 ribuan, 2 ratusan, 7 puluhan, 5 satuan", "4 ribuan, 27 puluhan, 5 satuan", "42 ratusan, 75 satuan", "4 ribuan, 275 satuan"], correct: "4 ribuan, 2 ratusan, 7 puluhan, 5 satuan" },
+            { question: "Nilai tempat angka 9 pada bilangan 3.967 adalah?", answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], correct: "Puluhan" },
+            { question: "Pada bilangan 1.234, jumlah nilai angka 2 dan 3 adalah?", answers: ["5", "23", "50", "230"], correct: "230" },
+            { question: "Pada bilangan 8.152, angka yang menempati nilai tempat satuan adalah?", answers: ["8", "1", "5", "2"], correct: "2" },
+            { question: "Nilai angka 6 pada bilangan 3.648 adalah?", answers: ["6", "60", "600", "6000"], correct: "600" },
+            { question: "Pada bilangan 9.073, angka yang nilainya 9000 adalah?", answers: ["9", "0", "7", "3"], correct: "9" },
+            { question: "Bilangan 5.321 dapat diuraikan menjadi?", answers: ["5000+300+20+1", "5000+321", "5+3+2+1", "5321"], correct: "5000+300+20+1" },
+            { question: "Nilai tempat angka 4 pada bilangan 7.462 adalah?", answers: ["Satuan", "Puluhan", "Ratusan", "Ribuan"], correct: "Ratusan" }
         ];
         
-        // Rankings data
-        let rankings = JSON.parse(localStorage.getItem('nilaiTempatRankings')) || [];
-        
         // Show screen function
-        function showScreen(screenId) {
+        window.showScreen = function(screenId) {
             document.getElementById(currentScreen).classList.add('hidden');
             document.getElementById(screenId).classList.remove('hidden');
             currentScreen = screenId;
@@ -786,20 +793,17 @@
             document.getElementById('btn-start-game').addEventListener('click', startGame);
             document.getElementById('btn-next-level').addEventListener('click', nextLevel);
             
-            // Set up nilai tempat options in materi screen
             const nilaiTempatOptions = document.querySelectorAll('.nilai-tempat-option');
             nilaiTempatOptions.forEach(option => {
                 option.addEventListener('click', function() {
                     const isCorrect = this.getAttribute('data-correct') === 'true';
                     const feedback = document.getElementById('nilai-tempat-feedback');
-                    
                     nilaiTempatOptions.forEach(opt => {
                         opt.disabled = true;
                         if (opt.getAttribute('data-correct') === 'true') {
                             opt.classList.add('bg-green-200', 'border-green-500');
                         }
                     });
-                    
                     if (isCorrect) {
                         feedback.textContent = 'Benar! Angka 6 berada di tempat ratusan, sehingga nilainya 6 × 100 = 600';
                         feedback.classList.add('bg-green-100', 'text-green-800');
@@ -808,35 +812,27 @@
                         feedback.classList.add('bg-red-100', 'text-red-800');
                         this.classList.add('bg-red-200', 'border-red-500');
                     }
-                    
                     feedback.classList.remove('hidden');
                 });
             });
 
-            // Add event listeners for touch controls
             document.getElementById('btn-up').addEventListener('click', () => movePlayer('up'));
             document.getElementById('btn-down').addEventListener('click', () => movePlayer('down'));
             document.getElementById('btn-left').addEventListener('click', () => movePlayer('left'));
             document.getElementById('btn-right').addEventListener('click', () => movePlayer('right'));
             
-            // Initialize the game board
             selectRandomQuestions();
             createMaze();
         }
         
-        // Select random questions for this game session
         function selectRandomQuestions() {
-            // Shuffle all questions
             const shuffledQuestions = [...allGameQuestions].sort(() => Math.random() - 0.5);
-            // Take only the first 10 questions
             selectedQuestions = shuffledQuestions.slice(0, totalQuestions);
         }
         
-        // Register player
         function registerPlayer() {
             const nameInput = document.getElementById('register-player-name');
             const name = nameInput.value.trim();
-            
             if (name) {
                 playerName = name;
                 document.getElementById('player-registration').classList.add('hidden');
@@ -845,7 +841,6 @@
             } else {
                 nameInput.classList.add('border-red-500');
                 nameInput.placeholder = "Nama harus diisi!";
-                
                 setTimeout(() => {
                     nameInput.classList.remove('border-red-500');
                     nameInput.placeholder = "Nama kamu";
@@ -853,145 +848,95 @@
             }
         }
 
-        // Create the maze
         function createMaze() {
             const mazeSize = 11;
             maze = [];
-
-            // 1. Create an open grid with border walls
             for (let y = 0; y < mazeSize; y++) {
                 const row = [];
                 for (let x = 0; x < mazeSize; x++) {
                     if (x === 0 || y === 0 || x === mazeSize - 1 || y === mazeSize - 1) {
                         row.push('wall');
                     } else {
-                        row.push('path'); // All internal cells are paths
+                        row.push('path');
                     }
                 }
                 maze.push(row);
             }
-
-            // 2. Define player and monster positions
             const center = Math.floor(mazeSize / 2);
-            playerPosition = { x: center, y: center }; // Player starts in the center
-            monsterPosition = { x: 1, y: 1 }; // Monster starts at top-left corner
-            
-            const answerPositions = [
-                { x: 2, y: 2 },  // Top-left area
-                { x: 8, y: 2 },  // Top-right area
-                { x: 2, y: 8 },  // Bottom-left area
-                { x: 8, y: 8 }   // Bottom-right area
-            ];
-
-            // 3. Get current question and shuffle its answers
+            playerPosition = { x: center, y: center };
+            monsterPosition = { x: 1, y: 1 };
+            const answerPositions = [ { x: 2, y: 2 }, { x: 8, y: 2 }, { x: 2, y: 8 }, { x: 8, y: 8 } ];
             const currentQuestion = selectedQuestions[currentLevel - 1];
             correctAnswer = currentQuestion.correct;
             const shuffledAnswers = [...currentQuestion.answers].sort(() => Math.random() - 0.5);
-
-            // 4. Place the shuffled answers in the answer positions
             for (let i = 0; i < answerPositions.length; i++) {
                 const pos = answerPositions[i];
                 const answerText = shuffledAnswers[i];
-                
                 if((pos.x === playerPosition.x && pos.y === playerPosition.y) || (pos.x === monsterPosition.x && pos.y === monsterPosition.y)) {
                     pos.x = (pos.x + 1) % (mazeSize - 2) + 1; 
                 }
-
-                maze[pos.y][pos.x] = { 
-                    type: 'answer', 
-                    text: answerText, 
-                    correct: answerText === correctAnswer 
-                };
+                maze[pos.y][pos.x] = { type: 'answer', text: answerText, correct: answerText === correctAnswer };
             }
-
-            // 5. Set player start position
             maze[playerPosition.y][playerPosition.x] = 'start';
-            
-            // Render the maze
             renderMaze();
         }
         
-        // Render the maze
         function renderMaze() {
             const gameBoard = document.getElementById('game-board');
             gameBoard.innerHTML = '';
             gameBoard.style.gridTemplateColumns = `repeat(${maze[0].length}, 50px)`;
-            
             for (let y = 0; y < maze.length; y++) {
                 for (let x = 0; x < maze[y].length; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'game-cell';
-                    
                     const cellType = maze[y][x];
-                    if (cellType === 'wall') {
-                        cell.classList.add('wall');
-                    } else if (cellType === 'path') {
-                        cell.classList.add('path');
-                    } else if (cellType === 'start') {
+                    if (cellType === 'wall') cell.classList.add('wall');
+                    else if (cellType === 'path') cell.classList.add('path');
+                    else if (cellType === 'start') {
                         cell.classList.add('start');
                         cell.textContent = 'S';
                     } else if (typeof cellType === 'object' && cellType.type === 'answer') {
-                        cell.classList.add('answer');
+                        cell.classList.add('answer', 'answer-room');
                         cell.textContent = cellType.text;
                         cell.dataset.correct = cellType.correct;
                         cell.addEventListener('click', () => checkAnswer(x, y, cellType.correct));
-                        
-                        // Add special styling for answer rooms
-                        cell.classList.add('answer-room');
                     }
-                    
                     gameBoard.appendChild(cell);
                 }
             }
-            
-            // Position player and monster
             updatePlayerPosition();
             updateMonsterPosition();
         }
         
-        // Update player position
         function updatePlayerPosition() {
             const player = document.getElementById('player');
-            const gameBoard = document.getElementById('game-board');
             const cellSize = 50;
-            
             player.style.left = `${playerPosition.x * cellSize + 5}px`;
             player.style.top = `${playerPosition.y * cellSize + 5}px`;
         }
         
-        // Update monster position
         function updateMonsterPosition() {
             const monster = document.getElementById('monster');
             const cellSize = 50;
-            
             monster.style.left = `${monsterPosition.x * cellSize + 5}px`;
             monster.style.top = `${monsterPosition.y * cellSize + 5}px`;
         }
         
-        // Move player
-        function movePlayer(direction) {
+        window.movePlayer = function(direction) {
             if (!gameStarted) return;
-            
-            let newX = playerPosition.x;
-            let newY = playerPosition.y;
-            
+            let newX = playerPosition.x, newY = playerPosition.y;
             switch (direction) {
                 case 'up': newY--; break;
                 case 'down': newY++; break;
                 case 'left': newX--; break;
                 case 'right': newX++; break;
             }
-            
-            // Check if new position is valid
             if (newX >= 0 && newX < maze[0].length && newY >= 0 && newY < maze.length) {
                 const cellType = maze[newY][newX];
-                
                 if (cellType !== 'wall') {
                     playerPosition.x = newX;
                     playerPosition.y = newY;
                     updatePlayerPosition();
-                    
-                    // Check if player reached an answer
                     if (typeof cellType === 'object' && cellType.type === 'answer') {
                         checkAnswer(newX, newY, cellType.correct);
                     }
@@ -999,74 +944,44 @@
             }
         }
         
-        // Move monster towards player
         function moveMonster() {
             if (!gameStarted) return;
-            
-            // Simple AI - move towards player
             const dx = playerPosition.x - monsterPosition.x;
             const dy = playerPosition.y - monsterPosition.y;
-            
-            let newX = monsterPosition.x;
-            let newY = monsterPosition.y;
-            
-            // Try to move horizontally or vertically towards player
-            if (Math.abs(dx) > Math.abs(dy)) {
-                newX += dx > 0 ? 1 : -1;
-            } else {
-                newY += dy > 0 ? 1 : -1;
-            }
-            
-            // Check if new position is valid (not a wall)
+            let newX = monsterPosition.x, newY = monsterPosition.y;
+            if (Math.abs(dx) > Math.abs(dy)) newX += dx > 0 ? 1 : -1;
+            else newY += dy > 0 ? 1 : -1;
             if (newX > 0 && newX < maze[0].length - 1 && newY > 0 && newY < maze.length - 1) {
                 monsterPosition.x = newX;
                 monsterPosition.y = newY;
                 updateMonsterPosition();
-                
-                // Check if monster caught player
                 if (monsterPosition.x === playerPosition.x && monsterPosition.y === playerPosition.y) {
                     endGame(false, "Kamu tertangkap raksasa!");
                 }
             }
         }
         
-        // Check answer
         function checkAnswer(x, y, isCorrect) {
             if (!gameStarted) return;
-            
             if (isCorrect) {
-                // Correct answer
                 score += Math.floor(timeLeft * 10);
                 document.getElementById('game-score').textContent = score;
-                
-                // Show success animation
                 showSuccessAnimation(x, y);
-                
-                // End level
                 endLevel(true);
             } else {
-                // Wrong answer
                 score -= 50;
                 if (score < 0) score = 0;
                 document.getElementById('game-score').textContent = score;
-                
-                // Show wrong animation
                 showWrongAnimation(x, y);
-                
-                // Reset player to center
                 const center = Math.floor(maze[0].length / 2);
                 playerPosition = { x: center, y: center };
                 updatePlayerPosition();
             }
         }
         
-        // Show success animation
         function showSuccessAnimation(x, y) {
             const cellSize = 50;
-            const centerX = x * cellSize + 25;
-            const centerY = y * cellSize + 25;
-            
-            // Create stars
+            const centerX = x * cellSize + 25, centerY = y * cellSize + 25;
             for (let i = 0; i < 10; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
@@ -1075,82 +990,49 @@
                 star.style.left = `${centerX + (Math.random() * 100 - 50)}px`;
                 star.style.top = `${centerY + (Math.random() * 100 - 50)}px`;
                 document.querySelector('.game-container').appendChild(star);
-                
-                setTimeout(() => {
-                    star.remove();
-                }, 2000);
+                setTimeout(() => star.remove(), 2000);
             }
         }
         
-        // Show wrong animation
         function showWrongAnimation(x, y) {
-            const cellSize = 50;
             const index = y * maze[0].length + x + 1;
             const cell = document.querySelector(`#game-board .game-cell:nth-child(${index})`);
-            
             if (cell) {
                 cell.classList.add('wrong-answer');
-                setTimeout(() => {
-                    cell.classList.remove('wrong-answer');
-                }, 1000);
+                setTimeout(() => cell.classList.remove('wrong-answer'), 1000);
             }
         }
         
-        // Start game
         function startGame() {
             if (gameStarted) return;
-            
             gameStarted = true;
             document.getElementById('game-rules').classList.add('hidden');
             document.getElementById('game-container').classList.remove('hidden');
-            
-            // Set up keyboard controls
             document.addEventListener('keydown', handleKeyPress);
-            
-            // Start game timer
             gameInterval = setInterval(() => {
                 timeLeft--;
                 document.getElementById('game-timer').textContent = timeLeft;
-                
-                if (timeLeft <= 0) {
-                    endGame(false, "Waktu habis!");
-                }
+                if (timeLeft <= 0) endGame(false, "Waktu habis!");
             }, 1000);
-            
-            // Start monster movement
             monsterInterval = setInterval(moveMonster, 500);
-            
-            // Update question
             document.getElementById('game-question').textContent = `Pertanyaan: ${selectedQuestions[currentLevel - 1].question}`;
             document.getElementById('game-level').textContent = `Level: ${currentLevel}/${totalQuestions}`;
         }
         
-        // Handle key press
         function handleKeyPress(e) {
             if (!gameStarted) return;
-            
             switch (e.key) {
-                case 'ArrowUp':
-                    movePlayer('up');
-                    break;
-                case 'ArrowDown':
-                    movePlayer('down');
-                    break;
-                case 'ArrowLeft':
-                    movePlayer('left');
-                    break;
-                case 'ArrowRight':
-                    movePlayer('right');
-                    break;
+                case 'ArrowUp': movePlayer('up'); break;
+                case 'ArrowDown': movePlayer('down'); break;
+                case 'ArrowLeft': movePlayer('left'); break;
+                case 'ArrowRight': movePlayer('right'); break;
             }
         }
         
-        // End level
         function endLevel(success) {
             clearInterval(gameInterval);
             clearInterval(monsterInterval);
             gameStarted = false;
-            
             if (success) {
                 if (currentLevel < totalQuestions) {
                     document.getElementById('btn-next-level').classList.remove('hidden');
@@ -1162,27 +1044,22 @@
             }
         }
         
-        // Next level
-        function nextLevel() {
+        window.nextLevel = function() {
             currentLevel++;
-            timeLeft = 30; // Reset waktu ke 30 detik
+            timeLeft = 30;
             document.getElementById('game-timer').textContent = timeLeft;
             document.getElementById('btn-next-level').classList.add('hidden');
-            
             createMaze();
             startGame();
         }
         
-        // End game
         function endGame(success, message) {
             clearInterval(gameInterval);
             clearInterval(monsterInterval);
             gameStarted = false;
-            
             document.getElementById('final-name').textContent = playerName;
             document.getElementById('final-score').textContent = score;
             document.getElementById('final-level').textContent = currentLevel;
-            
             if (success) {
                 document.getElementById('game-over-title').textContent = 'Selamat!';
                 document.getElementById('game-over-message').textContent = message;
@@ -1191,11 +1068,9 @@
                 document.getElementById('game-over-title').textContent = 'Game Over!';
                 document.getElementById('game-over-message').textContent = message;
             }
-            
             document.getElementById('game-over-modal').classList.remove('hidden');
         }
         
-        // Show confetti animation
         function showConfetti() {
             for (let i = 0; i < 100; i++) {
                 const confetti = document.createElement('div');
@@ -1205,106 +1080,85 @@
                 confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
                 confetti.style.animationDelay = `${Math.random() * 2}s`;
                 document.body.appendChild(confetti);
-                
-                setTimeout(() => {
-                    confetti.remove();
-                }, 5000);
+                setTimeout(() => confetti.remove(), 5000);
             }
         }
         
-        // Close game over modal
-        function closeGameOverModal() {
+        window.closeGameOverModal = function() {
             document.getElementById('game-over-modal').classList.add('hidden');
             resetGame();
             showScreen('home-screen');
         }
         
-        // Restart game
-        function restartGame() {
+        window.restartGame = function() {
             document.getElementById('game-over-modal').classList.add('hidden');
             resetGame();
             document.getElementById('game-rules').classList.remove('hidden');
             document.getElementById('game-container').classList.add('hidden');
         }
         
-        // Reset game
         function resetGame() {
             gameStarted = false;
             currentLevel = 1;
             score = 0;
-            timeLeft = 30; // Reset waktu ke 30 detik
-            
+            timeLeft = 30;
             document.getElementById('game-score').textContent = score;
             document.getElementById('game-timer').textContent = timeLeft;
             document.getElementById('game-level').textContent = `Level: ${currentLevel}/${totalQuestions}`;
             document.getElementById('btn-next-level').classList.add('hidden');
-            
-            // Select new random questions for this game session
             selectRandomQuestions();
             createMaze();
         }
         
-        // Save score
-        function saveScore() {
+        window.saveScore = function() {
             document.getElementById('game-over-modal').classList.add('hidden');
-            
-            // Pre-fill the name field
             document.getElementById('player-name').value = playerName;
             document.getElementById('save-score-modal').classList.remove('hidden');
         }
         
-        // Close save score modal
-        function closeSaveScoreModal() {
+        window.closeSaveScoreModal = function() {
             document.getElementById('save-score-modal').classList.add('hidden');
             resetGame();
             showScreen('home-screen');
         }
         
-        // Submit score
-        function submitScore() {
+        window.submitScore = async function() {
+            if (!rankingsCollection) {
+                console.error("Firestore is not initialized.");
+                return;
+            }
             const playerNameInput = document.getElementById('player-name').value.trim();
-            
             if (playerNameInput) {
                 const newScore = {
                     name: playerNameInput,
                     score: score,
                     level: currentLevel,
-                    date: new Date().toLocaleDateString()
+                    date: new Date().toISOString() // Use ISO string for consistent sorting
                 };
-                
-                rankings.push(newScore);
-                rankings.sort((a, b) => b.score - a.score);
-                
-                // Keep only top 50 scores
-                if (rankings.length > 50) {
-                    rankings = rankings.slice(0, 50);
+                try {
+                    // Use userId as the document ID to prevent duplicate entries per user
+                    // This will create a new entry or overwrite the existing one for the user
+                    await setDoc(doc(rankingsCollection, userId), newScore);
+                    document.getElementById('save-score-modal').classList.add('hidden');
+                    showScreen('ranking-screen');
+                } catch (error) {
+                    console.error("Error writing document: ", error);
                 }
-                
-                // Save to localStorage
-                localStorage.setItem('nilaiTempatRankings', JSON.stringify(rankings));
-                
-                document.getElementById('save-score-modal').classList.add('hidden');
-                showScreen('ranking-screen');
             }
         }
         
-        // Display rankings
         function displayRankings() {
             const podiumContainer = document.getElementById('podium-container');
             const tableBody = document.getElementById('ranking-table-body');
             const noRankings = document.getElementById('no-rankings');
             const table = document.querySelector('#ranking-screen table');
-
-            tableBody.innerHTML = ''; // Clear previous table data
-
-            // Reset podium text
+            tableBody.innerHTML = '';
             document.getElementById('podium-name-1').textContent = '-';
             document.getElementById('podium-score-1').textContent = 'Skor: 0';
             document.getElementById('podium-name-2').textContent = '-';
             document.getElementById('podium-score-2').textContent = 'Skor: 0';
             document.getElementById('podium-name-3').textContent = '-';
             document.getElementById('podium-score-3').textContent = 'Skor: 0';
-            
             if (rankings.length === 0) {
                 noRankings.classList.remove('hidden');
                 podiumContainer.classList.add('hidden');
@@ -1313,8 +1167,6 @@
                 noRankings.classList.add('hidden');
                 podiumContainer.classList.remove('hidden');
                 table.classList.remove('hidden');
-
-                // Populate Podium
                 if (rankings[0]) {
                     document.getElementById('podium-name-1').textContent = rankings[0].name;
                     document.getElementById('podium-score-1').textContent = `Skor: ${rankings[0].score}`;
@@ -1327,30 +1179,29 @@
                     document.getElementById('podium-name-3').textContent = rankings[2].name;
                     document.getElementById('podium-score-3').textContent = `Skor: ${rankings[2].score}`;
                 }
-
-                // Populate Table (from rank 4 onwards)
                 const tableRankings = rankings.slice(3);
                 tableRankings.forEach((rank, index) => {
                     const row = document.createElement('tr');
                     row.className = 'rank-item border-b hover:bg-blue-50';
-                    
-                    const rankDisplay = `${index + 4}`; // Start from rank 4
-                    
+                    const rankDisplay = `${index + 4}`;
                     row.innerHTML = `
                         <td class="py-3 px-4">${rankDisplay}</td>
                         <td class="py-3 px-4 font-semibold">${rank.name}</td>
                         <td class="py-3 px-4 font-bold text-blue-700">${rank.score}</td>
                         <td class="py-3 px-4">${rank.level}</td>
-                        <td class="py-3 px-4 text-gray-500">${rank.date}</td>
+                        <td class="py-3 px-4 text-gray-500">${new Date(rank.date).toLocaleDateString()}</td>
                     `;
-                    
                     tableBody.appendChild(row);
                 });
             }
         }
         
-        // Initialize the app
-        window.onload = initGame;
+        // Initialize the app on window load
+        window.onload = async () => {
+            await initializeAuth();
+            initGame();
+        };
+
     </script>
 </body>
 </html>
